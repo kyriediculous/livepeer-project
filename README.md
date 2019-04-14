@@ -32,6 +32,7 @@ If the worker is a contract address, the verification contract needs to call a v
 
 In our `Wallet.sol` this method is called `isValidSignature()` but for real world applications such method would likely need to be standardized through an interface if the Wallet contract is to be used cross-dapp. 
 
+
 ```
     function isValidSignature(
         address target,
@@ -49,3 +50,5 @@ In our `Wallet.sol` this method is called `isValidSignature()` but for real worl
             return (signer == master || actors[signer][target][method]);
     }
 ```
+
+Alternatively if it is for arbitrary bytes that are signed and not transactions we can take the `hash of the signed data` and the `resulting signature` as inputs, use `ecrecover` and check whether the signer is authorized to sign arbitrary bytes. (see `getSigner()` in `Wallet.sol`)
