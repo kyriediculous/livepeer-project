@@ -59,40 +59,40 @@ contract Wallet {
     }
 
     /// @notice Get the signer of a transaction through ecrecover
-    /// @param raw (bytes32) keccak256 hash of the ABI encoded transaction data 
-    /// @param sig (bytes) the signature resulting from signing 'raw'
+    /// @param _raw (bytes32) keccak256 hash of the ABI encoded transaction data 
+    /// @param _sig (bytes) the signature resulting from signing 'raw'
     /// @return signer (address) the EOA that signed the data 
-    function getSigner(bytes32 raw, bytes memory sig) public pure returns(address signer) {
-		return ECTools.prefixedRecover(raw, sig);
+    function getSigner(bytes32 _raw, bytes memory _sig) public pure returns(address signer) {
+		return ECTools.prefixedRecover(_raw, _sig);
 	}
 
     /// @notice Checks whether the signer is an authorized EOA
-    /// @param target (address) contract target address 
-    /// @param value (uint256) Wei amount being send in the transaction 
-    /// @param data (bytes) data being send in the transaction 
-    /// @param sig (bytes) the signature of the transaction data 
+    /// @param _target (address) contract target address 
+    /// @param _value (uint256) Wei amount being send in the transaction 
+    /// @param _data (bytes) data being send in the transaction 
+    /// @param _sig (bytes) the signature of the transaction data 
     /// @return isValid (bool) true/false based on whether the signer is master or an actor that has access rights to the method at 'target'
-    function isValidSignature(address target, uint256 value, bytes memory data, bytes memory sig) public view returns (bool isValid) {
-        bytes32 dataHash = keccak256(abi.encodePacked(target, value, data));
-        address signer = getSigner(dataHash, sig);
+    function isValidSignature(address _target, uint256 _value, bytes memory _data, bytes memory _sig) public view returns (bool isValid) {
+        bytes32 dataHash = keccak256(abi.encodePacked(_target, _value, _data));
+        address signer = getSigner(dataHash, _sig);
         bytes4 method;
         assembly {
-            method := mload(add(data, 0x20))
+            method := mload(add(_data, 0x20))
         }
-        return (signer == master || actors[signer][target][method]);
+        return (signer == master || actors[signer][_target][method]);
     }
 
     /// @notice Execute a batch of meta transactions atomically
     /// @dev Anyone can execute this but only transactions signed by master or actor (if valid method) are accepted 
-    /// @param target (address[]) Array of contract addresses
-    /// @param value (uint256[]) Array of wei amounts being sent in the respective transactions 
-    /// @param data (bytes[]) Array of ABI encoded transaction data 
-    /// @param dataHashSignature (bytes[]) Array of transaction signatures for the respective transaction data
+    /// @param _target (address[]) Array of contract addresses
+    /// @param _value (uint256[]) Array of wei amounts being sent in the respective transactions 
+    /// @param _data (bytes[]) Array of ABI encoded transaction data 
+    /// @param _dataHashSignature (bytes[]) Array of transaction signatures for the respective transaction data
     /// @return (bool) returns true if all transactions in the batch succeeded
-	function execute(address[] memory target, uint256[] memory value, bytes[] memory data, bytes[] memory dataHashSignature) public onlyMasterOrActor(target, value, data, dataHashSignature) returns (bool) {
-		require(target.length <= 8, 'Too many batched transactions');
-        for(uint i=0; i< target.length; i++) {
-			(bool success,) = target[i].call.value(value[i])(data[i]);
+	function execute(address[] memory _target, uint256[] memory _value, bytes[] memory _data, bytes[] memory _dataHashSignature) public onlyMasterOrActor(_target, _value, _data, _dataHashSignature) returns (bool) {
+		require(_target.length <= 8, 'Too many batched transactions');
+        for(uint i=0; i< _target.length; i++) {
+			(bool success,) = _target[i].call.value(_value[i])(_data[i]);
 			require(success, 'Excuting MetaTx Failed');
 		}
 		return true;
