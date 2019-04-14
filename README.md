@@ -24,11 +24,59 @@ The master can approve different actors to use external contract methods in the 
 
 ## Part 2 
 
-Assuming a worker will call something like `verifyAndReward(bytes memory data, bytes memory sig)`
-
-The verification contract would have to check whether the worker is an EOA or contract address (using `extcodesize`). 
-
+The verification contract would have to check whether the worker is an EOA or contract address (using `extcodesize`).
 If the worker is a contract address, the verification contract needs to call a verification method on the wallet contract representing the worker. 
+
+```
+function isValidSignature(address _worker, address _target, uint256 _value, bytes memory _data, bytes memory _sig) public pure returns (bool) {
+    uint codeLength;
+
+    assembly {
+        codeLength := extcodesize(worker)
+    }
+
+    if (codeLength > 0 ) {
+        // Worker is a contract 
+        (bool success, bytes memory returndata) = _worker.call(bytes4(keccak256("isValidSignature(address, uint256, bytes, bytes)")), _target, _value, _data, _sig)
+        require(returndata = 1);
+        return true;
+    } else {
+        // worker is an EOA
+        bytes32 dataHash = keccak256(abi.encodePacked(_target, _value, _data));
+        bytes32 prefixedRaw = keccak256(abi.encodePacked(prefix, _msg));
+        bytes32 r;
+        bytes32 s;
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        uint8 v;
+
+        //Check the signature length
+        if (signedMessage.length != 65) {
+            return false;
+        }
+
+        // Divide the signature in r, s and v variables
+        assembly {
+            r := mload(add(signedMessage, 32))
+            s := mload(add(signedMessage, 64))
+            v := byte(0, mload(add(signedMessage, 96)))
+        }
+
+        // Version of signature should be 27 or 28, but 0 and 1 are also possible versions
+        if (v < 27) {
+            v += 27;
+        }
+
+        // If the version is correct return the signer address
+        if (v != 27 && v != 28) {
+            return false;
+        } else {
+            require(ecrecover(originalMessage, v, r, s) == _worker);
+            return true;
+        }
+    }
+} 
+```
+
 
 In our `Wallet.sol` this method is called `isValidSignature()` but for real world applications such method would likely need to be standardized through an interface if the Wallet contract is to be used cross-dapp. 
 
@@ -50,5 +98,3 @@ In our `Wallet.sol` this method is called `isValidSignature()` but for real worl
             return (signer == master || actors[signer][target][method]);
     }
 ```
-
-Alternatively if it is for arbitrary bytes that are signed and not transactions we can take the `hash of the signed data` and the `resulting signature` as inputs, use `ecrecover` and check whether the signer is authorized to sign arbitrary bytes. (see `getSigner()` in `Wallet.sol`)
