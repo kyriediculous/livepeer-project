@@ -24,7 +24,7 @@ The master can approve different actors to use external contract methods in the 
 
 The verification contract would have to check whether the registered worker is an EOA or contract address (using `extcodesize`). 
 
-If the worker is a contract address, the verification contract needs to call a verification method on the Wallet contract. 
+If the worker is a contract address, the verification contract needs to call a verification method on the wallet contract representing the worker. 
 
 In our `Wallet.sol` this method is called `isValidSignature()` but for real world applications such method would likely need to be standardized through an interface if the Wallet contract is to be used cross-dapp. 
 
