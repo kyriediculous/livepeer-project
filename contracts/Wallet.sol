@@ -21,17 +21,8 @@ contract Wallet {
     }
 
     modifier onlyMasterOrActor(address[] memory target, uint256[] memory value, bytes[] memory data, bytes[] memory dataHashSignature) {
-		require(target.length <= 8, 'Too much batched transactions');
-
 		for(uint i=0; i< target.length; i++) {
-			bytes32 dataHash = keccak256(abi.encodePacked(target[i], value[i], data[i]));
-			address signer = getSigner(dataHash, dataHashSignature[i]);
-            bytes memory idata = data[i];
-            bytes4 sig;
-            assembly {
-                sig := mload(add(idata, 0x20))
-            }
-			require(signer == master || actors[signer][target[i]][sig], 'Invalid signature');
+            require(isValidSignature(target[i], value[i], data[i], dataHashSignature[i]));
 		}
 		_;
 	}
@@ -40,7 +31,7 @@ contract Wallet {
         master = _master;
     }
 
-    function () external payable {}
+    function() external payable {}
 
     function approveActorMethod(address _actor, address _contract, bytes4 _sig) external onlyMaster {
         actors[_actor][_contract][_sig]= true;
@@ -54,9 +45,20 @@ contract Wallet {
 		return ECTools.prefixedRecover(raw, sig);
 	}
 
+    function isValidSignature(address target, uint256 value, bytes memory data, bytes memory sig) public view returns (bool isValid) {
+        bytes32 dataHash = keccak256(abi.encodePacked(target, value, data));
+        address signer = getSigner(dataHash, sig);
+        bytes4 method;
+        assembly {
+            method := mload(add(data, 0x20))
+        }
+        return (signer == master || actors[signer][target][method]);
+    }
+
     // Anyone can execute this but only transactions signed by master or actor (if valid method) are accepted 
 	function execute(address[] memory target, uint256[] memory value, bytes[] memory data, bytes[] memory dataHashSignature) public onlyMasterOrActor(target, value, data, dataHashSignature) returns (bool) {
-		for(uint i=0; i< target.length; i++) {
+		require(target.length <= 8, 'Too many batched transactions');
+        for(uint i=0; i< target.length; i++) {
 			(bool success,) = target[i].call.value(value[i])(data[i]);
 			require(success, 'Excuting MetaTx Failed');
 		}
