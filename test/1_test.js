@@ -29,14 +29,17 @@ contract('Wallet.sol ETH hold/send/receive', (accounts) => {
     })
 
     it('$ETH can be withdrawn from wallet', async () => {
+        // encode & sign a transaction with no data and master as target 
         const transferHash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [accounts[0], 100, '0x0'])
         const transferSignature = await web3.eth.sign(transferHash, accounts[0])
+        // Execute the meta transaction , this will make the contract send ether 
         await wallet.execute([accounts[0]], [100], ['0x0'], [transferSignature])
         // await wallet.withdrawETH('100')
         assert.equal("0", (await web3.eth.getBalance(wallet.address)).toString(10))
     })
 
     it('Only master can withdraw $ETH', async () => {
+        // Do the same but this time sign with an account that does not have permissions
         await wallet.sendTransaction({value: "100"})
         const transferHash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [accounts[1], 100, '0x0'])
         const transferSignature = await web3.eth.sign(transferHash, accounts[1])
@@ -52,18 +55,22 @@ contract('Wallet.sol ERC20 hold/send/receive', (accounts) => {
         await Wallet.link('ECTools', ecTools.address)
         wallet = await Wallet.new(accounts[0])
         token = await Token.new("TestToken", "TEST", 18)
+        // give master some tokens 
         let tx = await token.mint(accounts[0], "1000")
     })
 
     it('Wallet can receive ERC20', async () => {
+        // transfer tokens to wallet contract
         await token.transfer(wallet.address, "1000")
         assert.equal((await token.balanceOf(wallet.address)).toString(10), "1000")
     })
 
     it('ERC20 can be withdrawn from wallet', async () => {
+        // Encode & sign a transaction that calls ERC20.transfer()
         const transferData = token.contract.methods.transfer(accounts[0], "1000").encodeABI()
         const transferHash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [token.address, 0, utils.arrayify(transferData)])
         const transferSignature = await web3.eth.sign(transferHash, accounts[0])
+        // Execute the meta transaction on behalf of the wallet contract, making it send ERC20 tokens to master
         await wallet.execute([token.address], [0], [transferData], [transferSignature])
         // await wallet.withdrawERC20(token.address, "1000")
         assert.equal((await token.balanceOf(accounts[0])).toString(10), "1000")
@@ -71,6 +78,7 @@ contract('Wallet.sol ERC20 hold/send/receive', (accounts) => {
     })
 
     it('Only master can withdraw ERC20', async () => {
+        // Same thing but sign with an account that does not have permissions
         await token.transfer(wallet.address, "10")
         const transferData = token.contract.methods.transfer(accounts[1], "10").encodeABI()
         const transferHash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [token.address, 0, utils.arrayify(transferData)])
@@ -93,16 +101,19 @@ contract('Wallet.sol atomic operations with meta transactions', (accounts) => {
         bondingManager = await BondingManager.new(token.address)
         serviceRegistry = await ServiceRegistry.new()
 
+        // encode and sign an ERC20.approve transaction
         approveData = token.contract.methods.approve(bondingManager.address, "500").encodeABI()
         approveHash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [token.address, 0, utils.arrayify(approveData)])
         approveSignature = await web3.eth.sign(approveHash, accounts[0])
 
+        // encode and sign a transaction for a contract call that implements ERC20.transferFrom()
         bondData = bondingManager.contract.methods.bond(wallet.address, "500").encodeABI()
         bondHash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [bondingManager.address, 0, utils.arrayify(bondData)])
         bondSignature = await web3.eth.sign(bondHash, accounts[0])
     })
 
     it('Executes ERC20.approve and ERC20.transferFrom atomically', async () => {
+        // Execute our signed transactions 
         await wallet.execute([token.address, bondingManager.address], [0, 0], [approveData, bondData], [approveSignature, bondSignature])
         assert.equal((await bondingManager.stakes(wallet.address)).toString(10), "500")
         assert.equal((await bondingManager.bonds(wallet.address, wallet.address)).toString(10), "500")
@@ -111,14 +122,17 @@ contract('Wallet.sol atomic operations with meta transactions', (accounts) => {
     })
 
     it('Executes bonding and registering atomically', async () => {
+        // encode and sign a transaction that calls a method to register as a worker 
         const registerData = bondingManager.contract.methods.register().encodeABI()
         const registerHash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [bondingManager.address, 0, utils.arrayify(registerData)])
         const registerSignature = await web3.eth.sign(registerHash, accounts[0])
 
+        // encode and sign a transaction to set a URI on the service registry 
         const setURIdata = serviceRegistry.contract.methods.setServiceURI('hello world').encodeABI()
         const setURIhash = utils.solidityKeccak256(['address', 'uint256', 'bytes'], [serviceRegistry.address, 0, utils.arrayify(setURIdata)])
         const setURIsignature = await web3.eth.sign(setURIhash, accounts[0])
 
+        // Execute the transactions on behalf of the wallet contract making him a worker and setting 'hello world' as URI on the service contract 
         await wallet.execute(
             [token.address, bondingManager.address, bondingManager.address, serviceRegistry.address],
             [0, 0, 0, 0],

@@ -77,7 +77,6 @@ function isValidSignature(address _worker, address _target, uint256 _value, byte
 } 
 ```
 
-
 In our `Wallet.sol` this method is called `isValidSignature()` but for real world applications such method would likely need to be standardized through an interface if the Wallet contract is to be used cross-dapp. 
 
 
