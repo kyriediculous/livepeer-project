@@ -1,0 +1,26 @@
+{
+  "name": "livepeer-project",
+  "version": "1.0.0",
+  "description": "Take home project for livepeer",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test"
+  },
+  "keywords": [
+    "identity",
+    "proxy",
+    "meta",
+    "transactions",
+    "atomic",
+    "erc20",
+    "staking"
+  ],
+  "author": "Nico Vergauwen <vergauwennico@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "ethers": "^4.0.27"
+  }
+}
