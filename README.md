@@ -32,7 +32,7 @@ function isValidSignature(address _worker, address _target, uint256 _value, byte
     uint codeLength;
 
     assembly {
-        codeLength := extcodesize(worker)
+        codeLength := extcodesize(_worker)
     }
 
     if (codeLength > 0 ) {
